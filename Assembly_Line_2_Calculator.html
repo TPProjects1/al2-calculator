@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assembly Line 2 — Requisition Calculator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root{
+    --bg: #1a1d21;
+    --panel: #22262b;
+    --panel-2: #282d33;
+    --line: #383e46;
+    --text: #e8e6e1;
+    --text-dim: #8b929c;
+    --amber: #e8a13d;
+    --amber-dim: #7a5a26;
+    --steel-blue: #5b7a94;
+    --steel-blue-dim: #33424e;
+    --green: #6fae6f;
+    --red: #c8615a;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html,body{
+    margin:0; padding:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Oswald', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body{
+    min-height:100vh;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.012) 39px, rgba(255,255,255,0.012) 40px);
+  }
+
+  .wrap{
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 20px 80px;
+  }
+
+  /* ---------- Header ---------- */
+  header{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    border-bottom: 3px solid var(--amber);
+    padding-bottom: 16px;
+    margin-bottom: 28px;
+  }
+
+  .brand{
+    display:flex;
+    align-items:baseline;
+    gap: 14px;
+  }
+
+  h1{
+    font-family:'Oswald',sans-serif;
+    font-weight:700;
+    font-size: 26px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin: 0;
+    color: var(--text);
+  }
+
+  .tag{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--amber);
+    background: var(--amber-dim);
+    padding: 3px 8px;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+
+  .subhead{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  /* ---------- Layout ---------- */
+  .grid{
+    display:grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 860px){
+    .grid{ grid-template-columns: 1fr; }
+  }
+
+  .panel{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+  }
+
+  .panel-head{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+  }
+
+  /* ---------- Picker panel ---------- */
+  .picker-body{ padding: 16px; }
+
+  label{
+    display:block;
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .field{ margin-bottom: 16px; }
+
+  input[type="text"], select, input[type="number"]{
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: 'Oswald', sans-serif;
+    font-size: 15px;
+    padding: 10px 12px;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  input[type="text"]:focus, select:focus, input[type="number"]:focus{
+    border-color: var(--amber);
+  }
+
+  #itemSearch{ margin-bottom: 8px; }
+
+  #itemList{
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: var(--panel-2);
+  }
+  .item-option{
+    padding: 9px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--line);
+    display:flex;
+    justify-content: space-between;
+    align-items:center;
+  }
+  .item-option:last-child{ border-bottom:none; }
+  .item-option:hover{ background: rgba(232,161,61,0.08); }
+  .item-option.selected{
+    background: rgba(232,161,61,0.15);
+    color: var(--amber);
+    font-weight: 500;
+  }
+  .item-option .cat{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  .qty-row{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+  }
+  .stepper-btn{
+    width: 38px; height: 38px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--amber);
+    font-size: 18px;
+    font-family: 'JetBrains Mono', monospace;
+    border-radius: 3px;
+    cursor: pointer;
+    display:flex; align-items:center; justify-content:center;
+    user-select:none;
+  }
+  .stepper-btn:hover{ border-color: var(--amber); }
+  #targetQty{ text-align:center; font-family:'JetBrains Mono', monospace; }
+
+  .build-btn{
+    width:100%;
+    margin-top: 6px;
+    background: var(--amber);
+    color: #1a1d21;
+    border: none;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: filter .15s;
+  }
+  .build-btn:hover{ filter: brightness(1.1); }
+  .build-btn:disabled{ background: var(--line); color: var(--text-dim); cursor:not-allowed; }
+
+  .selected-readout{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--line);
+  }
+  .selected-readout b{ color: var(--amber); font-weight:500; }
+
+  .reset-link{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    text-decoration: underline;
+    cursor: pointer;
+    background:none; border:none;
+    padding:0;
+  }
+  .reset-link:hover{ color: var(--red); }
+
+  /* ---------- Results panel ---------- */
+  .results-body{ padding: 0; }
+
+  .empty-state{
+    padding: 60px 24px;
+    text-align:center;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  .empty-state .big{
+    font-family:'Oswald', sans-serif;
+    font-size: 18px;
+    color: var(--text);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .section-title{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--steel-blue);
+    padding: 14px 16px 8px;
+    border-bottom: 1px dashed var(--line);
+    background: repeating-linear-gradient(90deg, var(--panel-2) 0 8px, var(--panel) 8px 16px);
+  }
+  .section-title.raw{ color: var(--green); }
+
+  table{
+    width:100%;
+    border-collapse: collapse;
+  }
+  thead th{
+    text-align:left;
+    font-family:'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  thead th.num{ text-align:right; }
+
+  tbody tr{
+    border-bottom: 1px solid var(--line);
+    transition: background .1s;
+  }
+  tbody tr:hover{ background: rgba(255,255,255,0.02); }
+  tbody tr.satisfied{ opacity: 0.45; }
+
+  td{
+    padding: 10px 16px;
+    font-size: 14px;
+    vertical-align: middle;
+  }
+  td.name{ font-weight: 400; }
+  td.name .depth-hint{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-left: 6px;
+  }
+
+  td.num{
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .tally{
+    display:inline-block;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 4px 10px;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--amber);
+    min-width: 46px;
+    text-align:center;
+  }
+  tr.satisfied .tally{ color: var(--text-dim); border-color: var(--line); }
+
+  .onhand-input{
+    width: 64px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    text-align:center;
+    padding: 6px 4px;
+    border-radius: 3px;
+  }
+  .onhand-input:focus{ border-color: var(--green); outline:none; }
+
+  .raw-row td.num .tally{ color: var(--green); }
+
+  .grand-total-note{
+    padding: 12px 16px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    border-top: 1px dashed var(--line);
+  }
+
+  footer{
+    margin-top: 30px;
+    text-align:center;
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <h1>Requisition Calculator</h1>
+      <span class="tag">Assembly Line 2</span>
+    </div>
+    <div class="subhead">59 products · 7 raw materials · full recursive breakdown</div>
+  </header>
+
+  <div class="grid">
+
+    <!-- ============ PICKER PANEL ============ -->
+    <div class="panel">
+      <div class="panel-head">Build Order</div>
+      <div class="picker-body">
+
+        <div class="field">
+          <label for="itemSearch">Item to build</label>
+          <input type="text" id="itemSearch" placeholder="Search parts &amp; machines…" autocomplete="off">
+          <div id="itemList"></div>
+        </div>
+
+        <div class="field">
+          <label for="targetQty">Quantity</label>
+          <div class="qty-row">
+            <button class="stepper-btn" id="qtyMinus">–</button>
+            <input type="number" id="targetQty" value="1" min="1">
+            <button class="stepper-btn" id="qtyPlus">+</button>
+          </div>
+        </div>
+
+        <button class="build-btn" id="buildBtn" disabled>Select an item</button>
+
+        <div class="selected-readout" id="selectedReadout" style="display:none;">
+          Building <b id="readoutQty"></b>&times; <b id="readoutName"></b>
+          <div style="margin-top:8px;">
+            <button class="reset-link" id="resetOnHand">Clear all "on hand" quantities</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ============ RESULTS PANEL ============ -->
+    <div class="panel">
+      <div class="panel-head">
+        <span>Full Requisition</span>
+        <span id="resultsMeta" style="font-family:'JetBrains Mono',monospace; font-size:10px;"></span>
+      </div>
+      <div class="results-body" id="resultsBody">
+        <div class="empty-state">
+          <div class="big">No build selected</div>
+          Pick an item on the left to see everything it takes to build it —<br>
+          every sub-component and every raw material, all the way down.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>Enter a quantity in "On Hand" for anything you've already got spare — totals recalculate live, including everything that spare item would've needed downstream.</footer>
+
+</div>
+
+<script>
+// =====================================================================
+// DATA — extracted from the user's Assembly Line 2 parts matrix
+// =====================================================================
+const DATA = {
+  "rawMaterials": ["Gold","Diamond","Iron","Copper","Aluminium","Plutonium","Uranium"],
+  "products": ["Gold Wire","Diamond Wire","Iron Wire","Copper Wire","Aluminium Wire","Gold Cog","Diamond Cog","Iron Cog","Copper Cog","Aluminium Cog","Gold Liquid","Diamond Liquid","Iron Liquid","Copper Liquid","Aluminium Liquid","Gold Plate","Diamond Plate","Iron Plate","Copper Plate","Aluminium Plate","Gold Cable","Diamond Cable","Iron Cable","Copper Cable","Aluminium Cable","Battery","Circuit","Electric Board","Engine","Heater Plate","Server Rack","Solar Cell","Advanced Engine","Computer","Fan","Laser","Power Supply","Processor","Solar Panel","AI Processor","AI Robot","AI Robot Arms","AI Robot Body","AI Robot Head","Electric Engine","Explosive","Ignition System","Super Computer","Trigger","Nuclear Cell","Nuclear Circuit","Plutonium Cell (Pink)","Uranium Cell (Green)","Uranium Circuit","Plutonium Circuit","Nuclear Core","Nuclear Processor","Atomic Bomb","AI Robot Bomber"],
+  "recipes": {
+    "Gold Wire": [{"name":"Gold","qty":1}],
+    "Diamond Wire": [{"name":"Diamond","qty":1}],
+    "Iron Wire": [{"name":"Iron","qty":1}],
+    "Copper Wire": [{"name":"Copper","qty":1}],
+    "Aluminium Wire": [{"name":"Aluminium","qty":1}],
+    "Gold Cog": [{"name":"Gold","qty":1}],
+    "Diamond Cog": [{"name":"Diamond","qty":1}],
+    "Iron Cog": [{"name":"Iron","qty":1}],
+    "Copper Cog": [{"name":"Copper","qty":1}],
+    "Aluminium Cog": [{"name":"Aluminium","qty":1}],
+    "Gold Liquid": [{"name":"Gold","qty":1}],
+    "Diamond Liquid": [{"name":"Diamond","qty":1}],
+    "Iron Liquid": [{"name":"Iron","qty":1}],
+    "Copper Liquid": [{"name":"Copper","qty":1}],
+    "Aluminium Liquid": [{"name":"Aluminium","qty":1}],
+    "Gold Plate": [{"name":"Gold","qty":1}],
+    "Diamond Plate": [{"name":"Diamond","qty":1}],
+    "Iron Plate": [{"name":"Iron","qty":1}],
+    "Copper Plate": [{"name":"Copper","qty":1}],
+    "Aluminium Plate": [{"name":"Aluminium","qty":1}],
+    "Gold Cable": [{"name":"Gold Wire","qty":3}],
+    "Diamond Cable": [{"name":"Diamond Wire","qty":3}],
+    "Iron Cable": [{"name":"Iron Wire","qty":3}],
+    "Copper Cable": [{"name":"Copper Wire","qty":3}],
+    "Aluminium Cable": [{"name":"Aluminium Wire","qty":3}],
+    "Battery": [{"name":"Copper","qty":1},{"name":"Copper Liquid","qty":1}],
+    "Circuit": [{"name":"Gold","qty":1},{"name":"Copper Wire","qty":1}],
+    "Electric Board": [{"name":"Aluminium","qty":1},{"name":"Copper Wire","qty":1}],
+    "Engine": [{"name":"Iron","qty":1},{"name":"Iron Cog","qty":1}],
+    "Heater Plate": [{"name":"Aluminium","qty":1},{"name":"Iron Wire","qty":1}],
+    "Server Rack": [{"name":"Iron","qty":1},{"name":"Aluminium","qty":1}],
+    "Solar Cell": [{"name":"Gold","qty":1},{"name":"Diamond Liquid","qty":1}],
+    "Advanced Engine": [{"name":"Diamond","qty":10},{"name":"Circuit","qty":5},{"name":"Engine","qty":5}],
+    "Computer": [{"name":"Fan","qty":1},{"name":"Power Supply","qty":1},{"name":"Processor","qty":1}],
+    "Fan": [{"name":"Aluminium","qty":6},{"name":"Diamond Cog","qty":3},{"name":"Circuit","qty":1}],
+    "Laser": [{"name":"Iron Liquid","qty":5},{"name":"Battery","qty":5},{"name":"Heater Plate","qty":5}],
+    "Power Supply": [{"name":"Diamond","qty":6},{"name":"Aluminium Liquid","qty":3},{"name":"Circuit","qty":1}],
+    "Processor": [{"name":"Diamond Wire","qty":3},{"name":"Gold Liquid","qty":3},{"name":"Circuit","qty":1}],
+    "Solar Panel": [{"name":"Circuit","qty":1},{"name":"Electric Board","qty":2},{"name":"Solar Cell","qty":2}],
+    "AI Processor": [{"name":"Copper Plate","qty":6},{"name":"Copper Cable","qty":4},{"name":"Circuit","qty":10},{"name":"Super Computer","qty":1}],
+    "AI Robot": [{"name":"Iron Plate","qty":10},{"name":"Diamond Cable","qty":5},{"name":"AI Robot Body","qty":1},{"name":"AI Robot Head","qty":1}],
+    "AI Robot Arms": [{"name":"Iron","qty":8},{"name":"Aluminium Plate","qty":2},{"name":"Aluminium Cable","qty":3},{"name":"Laser","qty":2}],
+    "AI Robot Body": [{"name":"Electric Board","qty":5},{"name":"Solar Cell","qty":2},{"name":"AI Robot Arms","qty":1},{"name":"Electric Engine","qty":1}],
+    "AI Robot Head": [{"name":"Gold Plate","qty":5},{"name":"Diamond Cable","qty":10},{"name":"Circuit","qty":10},{"name":"AI Processor","qty":1}],
+    "Electric Engine": [{"name":"Iron Plate","qty":5},{"name":"Battery","qty":2},{"name":"Electric Board","qty":2},{"name":"Advanced Engine","qty":2}],
+    "Explosive": [{"name":"Diamond Wire","qty":10},{"name":"Copper Cable","qty":10},{"name":"Circuit","qty":5},{"name":"Heater Plate","qty":10}],
+    "Ignition System": [{"name":"Battery","qty":5},{"name":"AI Processor","qty":2},{"name":"Explosive","qty":5},{"name":"Trigger","qty":2}],
+    "Super Computer": [{"name":"Gold Cable","qty":3},{"name":"Circuit","qty":3},{"name":"Server Rack","qty":1},{"name":"Computer","qty":2}],
+    "Trigger": [{"name":"Iron","qty":40},{"name":"Diamond Wire","qty":10},{"name":"Circuit","qty":5},{"name":"Electric Board","qty":5}],
+    "Nuclear Cell": [{"name":"Electric Board","qty":3},{"name":"Heater Plate","qty":3},{"name":"Solar Cell","qty":3},{"name":"Plutonium Cell (Pink)","qty":1},{"name":"Uranium Cell (Green)","qty":1}],
+    "Nuclear Circuit": [{"name":"Gold Cable","qty":3},{"name":"Circuit","qty":3},{"name":"Processor","qty":3},{"name":"Uranium Circuit","qty":1},{"name":"Plutonium Circuit","qty":1}],
+    "Plutonium Cell (Pink)": [{"name":"Plutonium","qty":2},{"name":"Diamond Liquid","qty":2},{"name":"Copper Plate","qty":2},{"name":"Gold Cable","qty":2},{"name":"Solar Cell","qty":2}],
+    "Uranium Cell (Green)": [{"name":"Uranium","qty":2},{"name":"Diamond Liquid","qty":2},{"name":"Copper Plate","qty":2},{"name":"Gold Cable","qty":2},{"name":"Solar Cell","qty":2}],
+    "Uranium Circuit": [{"name":"Copper","qty":5},{"name":"Uranium","qty":4},{"name":"Diamond Wire","qty":2},{"name":"Gold Cable","qty":1},{"name":"Circuit","qty":5}],
+    "Plutonium Circuit": [{"name":"Copper","qty":5},{"name":"Plutonium","qty":4},{"name":"Diamond Wire","qty":2},{"name":"Gold Cable","qty":1},{"name":"Circuit","qty":5}],
+    "Nuclear Core": [{"name":"Gold Cable","qty":4},{"name":"Diamond Cable","qty":4},{"name":"Processor","qty":10},{"name":"Nuclear Cell","qty":1},{"name":"Plutonium Cell (Pink)","qty":1},{"name":"Uranium Cell (Green)","qty":1}],
+    "Nuclear Processor": [{"name":"Diamond Plate","qty":10},{"name":"Processor","qty":5},{"name":"AI Processor","qty":1},{"name":"Nuclear Circuit","qty":1},{"name":"Uranium Circuit","qty":1},{"name":"Plutonium Circuit","qty":1}],
+    "Atomic Bomb": [{"name":"Plutonium","qty":15},{"name":"Uranium","qty":15},{"name":"Ignition System","qty":1},{"name":"Nuclear Cell","qty":1},{"name":"Nuclear Core","qty":1},{"name":"Nuclear Processor","qty":1}],
+    "AI Robot Bomber": [{"name":"AI Processor","qty":2},{"name":"AI Robot","qty":1},{"name":"Nuclear Cell","qty":3},{"name":"Nuclear Circuit","qty":3},{"name":"Nuclear Processor","qty":1},{"name":"Atomic Bomb","qty":1}]
+  }
+};
+
+const RAW_SET = new Set(DATA.rawMaterials);
+const ALL_ITEMS = [...DATA.products]; // raw materials aren't independently "buildable" targets, but can appear as on-hand? no—only produced items have on-hand meaning beyond raw counts. Raw materials on-hand isn't modeled (you just mine them).
+
+// =====================================================================
+// STATE
+// =====================================================================
+let selectedItem = null;
+let targetQty = 1;
+let onHand = {}; // itemName -> qty already owned (only meaningful for produced items)
+
+// =====================================================================
+// CORE CALCULATION
+// Recursively expands a build order into:
+//   - subComponents: Map(name -> {gross, onHand, net})
+//   - rawTotals: Map(name -> qty)
+// On-hand at any level reduces what needs to be built AT that level,
+// and consequently reduces everything that level would have consumed.
+// =====================================================================
+function calculate(rootItem, rootQty) {
+  const subComponents = new Map(); // name -> gross total requested across the tree
+  const rawTotals = new Map();
+
+  function expand(itemName, qtyNeeded) {
+    // Apply on-hand offset (root item itself is exempt — you're explicitly choosing to build N of it)
+    let netQty = qtyNeeded;
+    const recipe = DATA.recipes[itemName];
+
+    if (recipe) {
+      // track gross demand for this sub-component (for display), before subtracting on-hand
+      subComponents.set(itemName, (subComponents.get(itemName) || 0) + qtyNeeded);
+    }
+
+    const have = onHand[itemName] || 0;
+    netQty = Math.max(qtyNeeded - have, 0);
+
+    if (!recipe) {
+      // raw material leaf
+      rawTotals.set(itemName, (rawTotals.get(itemName) || 0) + netQty);
+      return;
+    }
+
+    if (netQty <= 0) return; // fully covered by on-hand, nothing further to expand
+
+    for (const ing of recipe) {
+      expand(ing.name, ing.qty * netQty);
+    }
+  }
+
+  // Root: on-hand does NOT apply to the thing you're explicitly building
+  const recipe = DATA.recipes[rootItem];
+  if (!recipe) {
+    rawTotals.set(rootItem, rootQty);
+  } else {
+    for (const ing of recipe) {
+      expand(ing.name, ing.qty * rootQty);
+    }
+  }
+
+  return { subComponents, rawTotals };
+}
+
+// Net-to-build per sub-component, accounting for on-hand, computed by
+// re-walking with on-hand applied at every level (needed for accurate
+// "Net To Build" column — gross totals collapse multiple parents, but
+// on-hand reduction must happen per-node during expansion, which the
+// calculate() function above already does for propagation purposes).
+// We display: gross = total ever demanded by parents, onHand = user input,
+// net = max(gross - onHand, 0) — consistent with what actually propagated.
+
+// =====================================================================
+// UI: Item picker
+// =====================================================================
+const itemListEl = document.getElementById('itemList');
+const itemSearchEl = document.getElementById('itemSearch');
+const buildBtn = document.getElementById('buildBtn');
+const targetQtyEl = document.getElementById('targetQty');
+
+function renderItemList(filter = '') {
+  const f = filter.trim().toLowerCase();
+  const matches = ALL_ITEMS.filter(name => name.toLowerCase().includes(f));
+  itemListEl.innerHTML = '';
+  if (matches.length === 0) {
+    itemListEl.innerHTML = '<div class="item-option" style="cursor:default;color:var(--text-dim);">No matches</div>';
+    return;
+  }
+  matches.forEach(name => {
+    const div = document.createElement('div');
+    div.className = 'item-option' + (name === selectedItem ? ' selected' : '');
+    const ingCount = DATA.recipes[name] ? DATA.recipes[name].length : 0;
+    div.innerHTML = `<span>${name}</span><span class="cat">${ingCount} ingredient${ingCount===1?'':'s'}</span>`;
+    div.addEventListener('click', () => {
+      selectedItem = name;
+      itemSearchEl.value = name;
+      renderItemList(itemSearchEl.value);
+      updateBuildButton();
+    });
+    itemListEl.appendChild(div);
+  });
+}
+
+itemSearchEl.addEventListener('input', () => {
+  if (itemSearchEl.value !== selectedItem) selectedItem = null;
+  renderItemList(itemSearchEl.value);
+  updateBuildButton();
+});
+
+document.getElementById('qtyMinus').addEventListener('click', () => {
+  targetQtyEl.value = Math.max(1, (parseInt(targetQtyEl.value)||1) - 1);
+});
+document.getElementById('qtyPlus').addEventListener('click', () => {
+  targetQtyEl.value = (parseInt(targetQtyEl.value)||1) + 1;
+});
+
+function updateBuildButton() {
+  if (selectedItem) {
+    buildBtn.disabled = false;
+    buildBtn.textContent = `Calculate requisition`;
+  } else {
+    buildBtn.disabled = true;
+    buildBtn.textContent = `Select an item`;
+  }
+}
+
+buildBtn.addEventListener('click', () => {
+  targetQty = Math.max(1, parseInt(targetQtyEl.value) || 1);
+  renderResults();
+});
+
+document.getElementById('resetOnHand').addEventListener('click', () => {
+  onHand = {};
+  renderResults();
+});
+
+// =====================================================================
+// UI: Results
+// =====================================================================
+const resultsBody = document.getElementById('resultsBody');
+const resultsMeta = document.getElementById('resultsMeta');
+const selectedReadout = document.getElementById('selectedReadout');
+const readoutQty = document.getElementById('readoutQty');
+const readoutName = document.getElementById('readoutName');
+
+function renderResults() {
+  if (!selectedItem) return;
+
+  selectedReadout.style.display = 'block';
+  readoutQty.textContent = targetQty;
+  readoutName.textContent = selectedItem;
+
+  const { subComponents, rawTotals } = calculate(selectedItem, targetQty);
+
+  resultsMeta.textContent = `${subComponents.size} sub-components · ${rawTotals.size} raw materials`;
+
+  let html = '';
+
+  // ---- Sub-components table ----
+  const subEntries = [...subComponents.entries()].sort((a,b) => b[1]-a[1]);
+  if (subEntries.length > 0) {
+    html += `<div class="section-title">Sub-Components to Build</div>`;
+    html += `<table><thead><tr>
+      <th>Item</th><th class="num">Gross Needed</th><th class="num">On Hand</th><th class="num">Net to Build</th>
+    </tr></thead><tbody>`;
+    subEntries.forEach(([name, gross]) => {
+      const have = onHand[name] || 0;
+      const net = Math.max(gross - have, 0);
+      const satisfied = net === 0 && have > 0;
+      html += `<tr class="${satisfied ? 'satisfied' : ''}">
+        <td class="name">${name}</td>
+        <td class="num"><span class="tally">${gross}</span></td>
+        <td class="num"><input type="number" class="onhand-input" min="0" value="${have || ''}" placeholder="0" data-item="${escapeAttr(name)}"></td>
+        <td class="num"><span class="tally">${net}</span></td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+
+  // ---- Raw materials table ----
+  const rawEntries = [...rawTotals.entries()].sort((a,b) => b[1]-a[1]);
+  html += `<div class="section-title raw">Raw Materials Required</div>`;
+  if (rawEntries.length > 0) {
+    html += `<table><thead><tr><th>Material</th><th class="num">Total Needed</th></tr></thead><tbody>`;
+    rawEntries.forEach(([name, qty]) => {
+      html += `<tr class="raw-row">
+        <td class="name">${name}</td>
+        <td class="num"><span class="tally">${qty}</span></td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+  } else {
+    html += `<div class="grand-total-note">Nothing left to mine — on-hand quantities fully cover this build.</div>`;
+  }
+
+  html += `<div class="grand-total-note">On-hand quantities reduce totals downstream: owning spares of a sub-component means fewer of ITS ingredients are needed too.</div>`;
+
+  resultsBody.innerHTML = html;
+
+  // Wire up on-hand inputs
+  resultsBody.querySelectorAll('.onhand-input').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const item = inp.dataset.item;
+      const val = Math.max(0, parseInt(inp.value) || 0);
+      if (val === 0) delete onHand[item];
+      else onHand[item] = val;
+      renderResults();
+      // restore focus to the same input after re-render
+      setTimeout(() => {
+        const again = resultsBody.querySelector(`.onhand-input[data-item="${escapeAttr(item)}"]`);
+        if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
+      }, 0);
+    });
+  });
+}
+
+function escapeAttr(s) {
+  return s.replace(/"/g, '&quot;');
+}
+
+// =====================================================================
+// INIT
+// =====================================================================
+renderItemList('');
+updateBuildButton();
+</script>
+</body>
+</html>
