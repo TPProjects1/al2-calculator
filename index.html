@@ -241,6 +241,15 @@
   }
   .reset-link:hover{ color: var(--red); }
 
+  .save-note{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--line);
+  }
+
   /* ---------- Results panel ---------- */
   .results-body{ padding: 0; }
 
@@ -307,6 +316,51 @@
     color: var(--text-dim);
     margin-left: 6px;
   }
+
+  .caret{
+    display:inline-block;
+    width: 14px;
+    color: var(--amber);
+    font-size: 11px;
+    transition: transform .12s;
+    cursor: pointer;
+  }
+  .caret.open{ transform: rotate(90deg); }
+  .caret-spacer{ display:inline-block; width:14px; }
+
+  .name-clickable{ cursor: pointer; }
+  .name-clickable:hover{ color: var(--amber); text-decoration: underline; }
+
+  tr.breakdown-row td{
+    padding: 0;
+    background: var(--bg);
+  }
+  .breakdown-wrap{
+    padding: 4px 16px 12px 38px;
+  }
+  table.breakdown-table{
+    width: 100%;
+    max-width: 480px;
+    border-collapse: collapse;
+  }
+  table.breakdown-table thead th{
+    font-size: 9px;
+    padding: 6px 10px;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--line);
+  }
+  table.breakdown-table td{
+    padding: 5px 10px;
+    font-size: 12.5px;
+    border-bottom: none;
+  }
+  td.bd-name{ color: var(--text-dim); }
+  td.bd-num{
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--steel-blue);
+  }
+  th.bd-num{ text-align:right; }
 
   td.num{
     text-align: right;
@@ -396,10 +450,12 @@
 
         <div class="selected-readout" id="selectedReadout" style="display:none;">
           Building <b id="readoutQty"></b>&times; <b id="readoutName"></b>
-          <div style="margin-top:8px;">
+          <div style="margin-top:8px; display:flex; flex-direction:column; gap:6px; align-items:flex-start;">
             <button class="reset-link" id="resetOnHand">Clear all "on hand" quantities</button>
+            <button class="reset-link" id="clearBuild">Clear saved build</button>
           </div>
         </div>
+        <div class="save-note" id="saveNote" style="display:none;">Build auto-saved on this device</div>
 
       </div>
     </div>
@@ -504,6 +560,59 @@ const ALL_ITEMS = [...DATA.products]; // raw materials aren't independently "bui
 let selectedItem = null;
 let targetQty = 1;
 let onHand = {}; // itemName -> qty already owned (only meaningful for produced items)
+let expandedRows = new Set(); // item names whose breakdown row is expanded
+
+// =====================================================================
+// PERSISTENCE — auto-save the current build to localStorage
+// =====================================================================
+const STORAGE_KEY = 'al2_calculator_save_v1';
+
+function saveState() {
+  try {
+    const payload = { selectedItem, targetQty, onHand };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch (e) {
+    console.warn('Could not save build:', e);
+  }
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const payload = JSON.parse(raw);
+    if (payload.selectedItem && ALL_ITEMS.includes(payload.selectedItem)) {
+      selectedItem = payload.selectedItem;
+    }
+    if (typeof payload.targetQty === 'number' && payload.targetQty > 0) {
+      targetQty = payload.targetQty;
+    }
+    if (payload.onHand && typeof payload.onHand === 'object') {
+      onHand = payload.onHand;
+    }
+  } catch (e) {
+    console.warn('Could not load saved build:', e);
+  }
+}
+
+function clearSavedBuild() {
+  selectedItem = null;
+  targetQty = 1;
+  onHand = {};
+  expandedRows.clear();
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+  itemSearchEl.value = '';
+  targetQtyEl.value = 1;
+  renderItemList('');
+  updateBuildButton();
+  resultsBody.innerHTML = `<div class="empty-state">
+    <div class="big">No build selected</div>
+    Pick an item on the left to see everything it takes to build it —<br>
+    every sub-component and every raw material, all the way down.
+  </div>`;
+  resultsMeta.textContent = '';
+  selectedReadout.style.display = 'none';
+}
 
 // =====================================================================
 // CORE CALCULATION
@@ -590,6 +699,9 @@ function renderItemList(filter = '') {
       itemSearchEl.value = name;
       renderItemList(itemSearchEl.value);
       updateBuildButton();
+      targetQty = Math.max(1, parseInt(targetQtyEl.value) || 1);
+      renderResults();
+      saveState();
     });
     itemListEl.appendChild(div);
   });
@@ -621,11 +733,22 @@ function updateBuildButton() {
 buildBtn.addEventListener('click', () => {
   targetQty = Math.max(1, parseInt(targetQtyEl.value) || 1);
   renderResults();
+  saveState();
+});
+
+targetQtyEl.addEventListener('change', () => {
+  targetQty = Math.max(1, parseInt(targetQtyEl.value) || 1);
+  if (selectedItem) { renderResults(); saveState(); }
 });
 
 document.getElementById('resetOnHand').addEventListener('click', () => {
   onHand = {};
   renderResults();
+  saveState();
+});
+
+document.getElementById('clearBuild').addEventListener('click', () => {
+  clearSavedBuild();
 });
 
 // =====================================================================
@@ -661,12 +784,21 @@ function renderResults() {
       const have = onHand[name] || 0;
       const net = Math.max(gross - have, 0);
       const satisfied = net === 0 && have > 0;
-      html += `<tr class="${satisfied ? 'satisfied' : ''}">
-        <td class="name">${name}</td>
+      const recipe = DATA.recipes[name];
+      const isExpanded = expandedRows.has(name);
+      const canExpand = !!recipe;
+      html += `<tr class="${satisfied ? 'satisfied' : ''} ${canExpand ? 'expandable' : ''}" data-row-item="${escapeAttr(name)}">
+        <td class="name">
+          ${canExpand ? `<span class="caret ${isExpanded?'open':''}">&#9656;</span>` : '<span class="caret-spacer"></span>'}
+          <span class="${canExpand?'name-clickable':''}">${name}</span>
+        </td>
         <td class="num"><span class="tally">${gross}</span></td>
         <td class="num"><input type="number" class="onhand-input" min="0" value="${have || ''}" placeholder="0" data-item="${escapeAttr(name)}"></td>
         <td class="num"><span class="tally">${net}</span></td>
       </tr>`;
+      if (canExpand && isExpanded) {
+        html += `<tr class="breakdown-row"><td colspan="4">${renderBreakdown(name, recipe, gross)}</td></tr>`;
+      }
     });
     html += `</tbody></table>`;
   }
@@ -699,11 +831,23 @@ function renderResults() {
       if (val === 0) delete onHand[item];
       else onHand[item] = val;
       renderResults();
+      saveState();
       // restore focus to the same input after re-render
       setTimeout(() => {
         const again = resultsBody.querySelector(`.onhand-input[data-item="${escapeAttr(item)}"]`);
         if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
       }, 0);
+    });
+  });
+
+  // Wire up expandable rows (click name to toggle breakdown)
+  resultsBody.querySelectorAll('tr.expandable .name-clickable, tr.expandable .caret').forEach(el => {
+    el.addEventListener('click', () => {
+      const tr = el.closest('tr[data-row-item]');
+      const item = tr.dataset.rowItem;
+      if (expandedRows.has(item)) expandedRows.delete(item);
+      else expandedRows.add(item);
+      renderResults();
     });
   });
 }
@@ -712,10 +856,35 @@ function escapeAttr(s) {
   return s.replace(/"/g, '&quot;');
 }
 
+function renderBreakdown(itemName, recipe, grossQty) {
+  const rows = recipe.map(ing => {
+    return `<tr>
+      <td class="bd-name">${ing.name}</td>
+      <td class="bd-num">${ing.qty}</td>
+      <td class="bd-num">${ing.qty * grossQty}</td>
+    </tr>`;
+  }).join('');
+  return `<div class="breakdown-wrap">
+    <table class="breakdown-table">
+      <thead><tr>
+        <th>Ingredient</th><th class="bd-num">Per 1 ${escapeAttr(itemName)}</th><th class="bd-num">For all ${grossQty} needed</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
 // =====================================================================
 // INIT
 // =====================================================================
-renderItemList('');
+loadState();
+if (selectedItem) {
+  itemSearchEl.value = selectedItem;
+  targetQtyEl.value = targetQty;
+  document.getElementById('saveNote').style.display = 'block';
+  renderResults();
+}
+renderItemList(itemSearchEl.value || '');
 updateBuildButton();
 </script>
 </body>
