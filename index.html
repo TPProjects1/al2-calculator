@@ -361,6 +361,8 @@
     color: var(--steel-blue);
   }
   th.bd-num{ text-align:right; }
+  .bd-highlight{ color: var(--amber) !important; font-weight: 600; }
+  th.bd-highlight{ color: var(--amber) !important; font-weight: 500; }
 
   td.num{
     text-align: right;
@@ -797,7 +799,7 @@ function renderResults() {
         <td class="num"><span class="tally">${net}</span></td>
       </tr>`;
       if (canExpand && isExpanded) {
-        html += `<tr class="breakdown-row"><td colspan="4">${renderBreakdown(name, recipe, gross)}</td></tr>`;
+        html += `<tr class="breakdown-row"><td colspan="4">${renderBreakdown(name, recipe, gross, net)}</td></tr>`;
       }
     });
     html += `</tbody></table>`;
@@ -856,18 +858,26 @@ function escapeAttr(s) {
   return s.replace(/"/g, '&quot;');
 }
 
-function renderBreakdown(itemName, recipe, grossQty) {
+function renderBreakdown(itemName, recipe, grossQty, netQty) {
+  const showNet = netQty !== grossQty; // only show the "remaining" column when on-hand actually changes something
   const rows = recipe.map(ing => {
+    const perOne = ing.qty;
+    const forNet = ing.qty * netQty;
+    const forGross = ing.qty * grossQty;
     return `<tr>
       <td class="bd-name">${ing.name}</td>
-      <td class="bd-num">${ing.qty}</td>
-      <td class="bd-num">${ing.qty * grossQty}</td>
+      <td class="bd-num">${perOne}</td>
+      ${showNet ? `<td class="bd-num bd-highlight">${forNet}</td>` : ''}
+      <td class="bd-num">${forGross}</td>
     </tr>`;
   }).join('');
   return `<div class="breakdown-wrap">
     <table class="breakdown-table">
       <thead><tr>
-        <th>Ingredient</th><th class="bd-num">Per 1 ${escapeAttr(itemName)}</th><th class="bd-num">For all ${grossQty} needed</th>
+        <th>Ingredient</th>
+        <th class="bd-num">Per 1</th>
+        ${showNet ? `<th class="bd-num bd-highlight">For ${netQty} still needed</th>` : ''}
+        <th class="bd-num">For all ${grossQty} total</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
