@@ -327,6 +327,7 @@
   }
   .caret.open{ transform: rotate(90deg); }
   .caret-spacer{ display:inline-block; width:14px; }
+  .caret-spacer-sm{ display:inline-block; width:14px; }
 
   .name-clickable{ cursor: pointer; }
   .name-clickable:hover{ color: var(--amber); text-decoration: underline; }
@@ -702,6 +703,7 @@ function renderItemList(filter = '') {
       renderItemList(itemSearchEl.value);
       updateBuildButton();
       targetQty = Math.max(1, parseInt(targetQtyEl.value) || 1);
+      expandedRows.clear();
       renderResults();
       saveState();
     });
@@ -799,7 +801,7 @@ function renderResults() {
         <td class="num"><span class="tally">${net}</span></td>
       </tr>`;
       if (canExpand && isExpanded) {
-        html += `<tr class="breakdown-row"><td colspan="4">${renderBreakdown(name, recipe, gross, net)}</td></tr>`;
+        html += `<tr class="breakdown-row"><td colspan="4">${renderBreakdown(name, recipe, gross, net, name, 0)}</td></tr>`;
       }
     });
     html += `</tbody></table>`;
@@ -842,13 +844,15 @@ function renderResults() {
     });
   });
 
-  // Wire up expandable rows (click name to toggle breakdown)
-  resultsBody.querySelectorAll('tr.expandable .name-clickable, tr.expandable .caret').forEach(el => {
+  // Wire up expandable rows (click name/caret to toggle breakdown) —
+  // delegated so it covers both top-level rows and any depth of nested
+  // breakdown rows rendered inside renderBreakdown().
+  resultsBody.querySelectorAll('.name-clickable, .caret').forEach(el => {
     el.addEventListener('click', () => {
-      const tr = el.closest('tr[data-row-item]');
-      const item = tr.dataset.rowItem;
-      if (expandedRows.has(item)) expandedRows.delete(item);
-      else expandedRows.add(item);
+      const tr = el.closest('tr');
+      const key = tr.dataset.bdPath !== undefined ? tr.dataset.bdPath : tr.dataset.rowItem;
+      if (expandedRows.has(key)) expandedRows.delete(key);
+      else expandedRows.add(key);
       renderResults();
     });
   });
@@ -858,20 +862,36 @@ function escapeAttr(s) {
   return s.replace(/"/g, '&quot;');
 }
 
-function renderBreakdown(itemName, recipe, grossQty, netQty) {
-  const showNet = netQty !== grossQty; // only show the "remaining" column when on-hand actually changes something
+function renderBreakdown(itemName, recipe, grossQty, netQty, path, depth) {
+  const showNet = netQty !== grossQty;
   const rows = recipe.map(ing => {
     const perOne = ing.qty;
     const forNet = ing.qty * netQty;
     const forGross = ing.qty * grossQty;
-    return `<tr>
-      <td class="bd-name">${ing.name}</td>
+    const ingRecipe = DATA.recipes[ing.name];
+    const canExpand = !!ingRecipe;
+    const childPath = path + '>' + ing.name;
+    const isExpanded = expandedRows.has(childPath);
+    // The child's own "gross" and "net" in this nested context are the
+    // amounts THIS parent row needs of it (forGross / forNet), so a
+    // grandchild breakdown scales correctly off however many of the
+    // child are actually required at this point in the tree.
+    let rowHtml = `<tr class="${canExpand ? 'expandable' : ''}" data-bd-path="${escapeAttr(childPath)}">
+      <td class="bd-name">
+        ${canExpand ? `<span class="caret ${isExpanded?'open':''}">&#9656;</span>` : '<span class="caret-spacer-sm"></span>'}
+        <span class="${canExpand?'name-clickable':''}">${ing.name}</span>
+      </td>
       <td class="bd-num">${perOne}</td>
       ${showNet ? `<td class="bd-num bd-highlight">${forNet}</td>` : ''}
       <td class="bd-num">${forGross}</td>
     </tr>`;
+    if (canExpand && isExpanded && depth < 12) {
+      const nestedNet = showNet ? forNet : forGross;
+      rowHtml += `<tr class="breakdown-row"><td colspan="${showNet?4:3}">${renderBreakdown(ing.name, ingRecipe, forGross, nestedNet, childPath, depth+1)}</td></tr>`;
+    }
+    return rowHtml;
   }).join('');
-  return `<div class="breakdown-wrap">
+  return `<div class="breakdown-wrap" style="padding-left:${depth>0 ? 22 : 38}px;">
     <table class="breakdown-table">
       <thead><tr>
         <th>Ingredient</th>
